@@ -1,4 +1,5 @@
 # This file may be used to create an environment using:
+# TODO: update with correct requirements
 # $ conda create --name <env> --file <this file>
 # platform: win-64
 absl-py=2.0.0=pypi_0

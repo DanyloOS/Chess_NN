@@ -15,6 +15,7 @@ from random import randrange
 import time
 from collections import OrderedDict
 import chess
+from datetime import datetime
 
 
 DB_PATH='test.db'
@@ -47,8 +48,10 @@ class EvaluationDataset(IterableDataset):
     eval = Evaluations.get(Evaluations.id == idx+1)
     bin = np.frombuffer(eval.binary, dtype=np.uint8)
     bin = np.unpackbits(bin, axis=0).astype(np.single)
-    eval.eval = max(eval.eval, -100)
-    eval.eval = min(eval.eval, 100)
+    # eval.eval = max(eval.eval, -100)
+    # eval.eval = min(eval.eval, 100)
+    eval.eval = max(eval.eval, -10)
+    eval.eval = min(eval.eval, 10)
     ev = np.array([eval.eval]).astype(np.single)
     return {'binary':bin, 'eval':ev}
 
@@ -87,29 +90,47 @@ if __name__=="__main__":
     dataset = EvaluationDataset(count=LABEL_COUNT)
 
     configs = [
-            #  {"layer_count": 4, "batch_size": 64},
-            #  {"layer_count": 4, "batch_size": 512},
-            {"layer_count": 5, "batch_size": 512},
-            #  {"layer_count": 6, "batch_size": 1024},
+            #  {"layer_count": 2, "batch_size": 128, "max_epochs": 1},
+            #  {"layer_count": 2, "batch_size": 512, "max_epochs": 1},
+            #  {"layer_count": 2, "batch_size": 1024, "max_epochs": 1},
+            # #  {"layer_count": 4, "batch_size": 64, "max_epochs": 1},
+            #  {"layer_count": 3, "batch_size": 1024, "max_epochs": 1},
+            #  {"layer_count": 4, "batch_size": 512, "max_epochs": 1},
+            #  {"layer_count": 5, "batch_size": 512, "max_epochs": 1},
+            #  {"layer_count": 6, "batch_size": 256, "max_epochs": 1},
+            #  {"layer_count": 6, "batch_size": 512, "max_epochs": 1},
+             # ___________
+            #  {"layer_count": 6, "batch_size": 1024, "max_epochs": 1},
+            #  {"layer_count": 6, "batch_size": 128, "max_epochs": 1},
+             #________
+            #  {"layer_count": 2, "batch_size": 128, "max_epochs": 2},
+            #  {"layer_count": 2, "batch_size": 512, "max_epochs": 2},
+            #  {"layer_count": 2, "batch_size": 1024, "max_epochs": 2},
+            #  {"layer_count": 4, "batch_size": 64, "max_epochs": 2},
+            #  {"layer_count": 3, "batch_size": 1024, "max_epochs": 2},
+            #  {"layer_count": 4, "batch_size": 128, "max_epochs": 2},
+            #  {"layer_count": 4, "batch_size": 256, "max_epochs": 2},
+            #  {"layer_count": 4, "batch_size": 512, "max_epochs": 2},
+            #  {"layer_count": 5, "batch_size": 512, "max_epochs": 2},
+            #  {"layer_count": 6, "batch_size": 256, "max_epochs": 2},
+             {"layer_count": 4, "batch_size": 1024, "max_epochs": 3},
+            #  {"layer_count": 6, "batch_size": 128, "max_epochs": 2},
+            #  {"layer_count": 6, "batch_size": 512, "max_epochs": 2},
+             {"layer_count": 6, "batch_size": 1024, "max_epochs": 2},
             ]
     for config in configs:
         torch.set_float32_matmul_precision('medium')
-        version_name = f'{int(time.time())}-batch_size-{config["batch_size"]}-layer_count-{config["layer_count"]}'
+        version_name = f'{int(time.time())}-batch_size-{config["batch_size"]}-layer_count-{config["layer_count"]}-max_epochs-{config["max_epochs"]}'
+        print(f"learning started at {datetime.now().time()} for {version_name}")
         logger = pl.loggers.TensorBoardLogger("lightning_logs", name="chessml", version=version_name)
-        trainer = pl.Trainer(precision="16-mixed",max_epochs=1,logger=logger)
+        trainer = pl.Trainer(precision="16-mixed",max_epochs=config["max_epochs"],logger=logger)
+        model = EvaluationModel(layer_count=config["layer_count"],batch_size=config["batch_size"],learning_rate=1e-3)
+        trainer.fit(model)
+        torch.save(model.state_dict(), f"model_state_{version_name}.bin")
+        print(f"learning finished at {datetime.now().time()} for {version_name}")
 
-    model = EvaluationModel(layer_count=config["layer_count"],batch_size=config["batch_size"],learning_rate=1e-3)
 
-    trainer.fit(model)
-    torch.save(model.state_dict(), "model_state_dicts_layer5_batch512_1e3_epochs1111")
+    # trainer.fit(model)
+    # torch.save(model.state_dict(), "model_state_dicts_layer5_batch512_1e3_epochs1111")
     # model = EvaluationModel(layer_count=config["layer_count"],batch_size=config["batch_size"],learning_rate=1e-3)
     # model.load_state_dict(torch.load('model_state_dicts_layer5_batch512_1e3_epochs1'))
-
-    print(dataset.__next__())
-    print(dataset.__next__())
-    db.connect()
-    LABEL_COUNT = 37164639
-    print(LABEL_COUNT)
-    eval = Evaluations.get(Evaluations.id == 1)
-    print(eval.binary_base64())
-    print(Evaluations.get(Evaluations.id == 2).binary_base64())
